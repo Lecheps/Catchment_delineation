@@ -12,7 +12,7 @@
     longitude: 6.1064093305
     latitude: 58.621933418
     epsg: 4326
-    buffer: 2000
+    buffer: 3000
 
 - station:
     station_id: 12080
@@ -36,7 +36,7 @@
     longitude: 30.3861541427
     latitude: 69.6847380767
     epsg: 4326
-    buffer: 2000
+    buffer: 5000
 
 - station:
     station_id: 108
@@ -44,5 +44,5 @@
     longitude: 9.7266598416
     latitude: 60.3724626431
     epsg: 4326
-    buffer: 2500
+    buffer: 5000
 
