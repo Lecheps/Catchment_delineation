@@ -1,0 +1,48 @@
+- station:
+    station_id: 221
+    station_name: Birkenes
+    longitude: 8.2417211373
+    latitude: 58.3854261264
+    epsg: 4326
+    buffer: 2000   #in meters
+
+- station:
+    station_id: 12025
+    station_name: Øygardsbekken
+    longitude: 6.1064093305
+    latitude: 58.621933418
+    epsg: 4326
+    buffer: 2000
+
+- station:
+    station_id: 12080
+    station_name: Storgama v. dam
+    longitude: 8.6536063505
+    latitude: 59.0523331551
+    epsg: 4326
+    buffer: 2000
+
+- station:
+    station_id: 12081
+    station_name: Kårvatn
+    longitude: 8.8934427312
+    latitude: 62.7828833564
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 12082
+    station_name: Dalelv
+    longitude: 30.3861541427
+    latitude: 69.6847380767
+    epsg: 4326
+    buffer: 2000
+
+- station:
+    station_id: 108
+    station_name: Langtjern, utløp
+    longitude: 9.7266598416
+    latitude: 60.3724626431
+    epsg: 4326
+    buffer: 2500
+
