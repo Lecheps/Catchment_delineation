@@ -221,8 +221,8 @@ def refreshProcedures(dbname,user,host,password) :
                  st text = _schema || '.' || _table || SUBSTRING(_epsg::text FROM '..$');
                  stations text = _schema || '.stations';
              BEGIN
-                 EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, station_id INTEGER REFERENCES ' || stations || '(station_id), 
-                 station_name varchar(80) REFERENCES  ' || stations || '(station_name),
+                 EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, station_id INTEGER UNIQUE REFERENCES ' || stations || '(station_id), 
+                 station_name varchar(80) UNIQUE REFERENCES  ' || stations || '(station_name),
                  rast raster, basin geometry(MULTIPOLYGON, ' || _epsg || '));';            
              RETURN;
              END; 
