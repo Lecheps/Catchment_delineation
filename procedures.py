@@ -26,6 +26,7 @@ def refreshProcedures(dbname,user,host,password) :
     
     #Creating schema to store procedures
     cursor.execute(''' DROP SCHEMA IF EXISTS procedures CASCADE;
+                       DROP SCHEMA IF EXISTS norwayShp CASCADE;
                        CREATE SCHEMA procedures;
                        CREATE EXTENSION IF NOT EXISTS plsh;
                        
@@ -65,6 +66,19 @@ def refreshProcedures(dbname,user,host,password) :
     conn.commit()
     
     
+    #Creating schema to store data
+    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.initializeSchema( _schema text  ) RETURNS void AS $$
+                    BEGIN
+                        EXECUTE 'DROP SCHEMA IF EXISTS ' || _schema || ' CASCADE';
+                        EXECUTE 'CREATE SCHEMA ' || _schema;
+                    RETURN;
+                    END; 
+                    $$ LANGUAGE PLPGSQL;   
+              ''')
+    
+    conn.commit()
+    
+    #Creating schema to store data
     cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.initializeResultsSchema( _schema text  ) RETURNS void AS $$
                     BEGIN
                         EXECUTE 'DROP SCHEMA IF EXISTS ' || _schema || ' CASCADE';
@@ -79,6 +93,8 @@ def refreshProcedures(dbname,user,host,password) :
               ''')
     
     conn.commit()
+    
+    
     
     cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.addStations( _station_array station_info[] ) RETURNS void AS $$
                         DECLARE 
@@ -111,10 +127,10 @@ def refreshProcedures(dbname,user,host,password) :
     
     
     
-    
-    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.loadRivers(text,integer,text,text) RETURNS void AS 
+    #Argumemts path/to/rivers.shp , epsg number, schema , table, password , database , username
+    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.loadRivers(text,integer,text,text,text,text,text) RETURNS void AS 
                        '#!/bin/sh
-                        shp2pgsql -I -d -s $2 $1 $3.$4 | psql -p 5432
+                        shp2pgsql -I -d -s $2 $1 $3.$4 | PGPASSWORD=$5 psql -p 5432 -d $6 -h localhost -U $7
                        ' LANGUAGE plsh;                       
                    ''')
     conn.commit()
@@ -129,17 +145,15 @@ def refreshProcedures(dbname,user,host,password) :
                    ''')
     conn.commit()
     
-    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.setExtentTable( _schema text, _epsg int ) RETURNS void AS $$
-                    DECLARE 
-                        demTable text = 'demutm' || SUBSTRING(_epsg::text FROM '..$');
+    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.setExtentTable( _schema text, _table text ) RETURNS void AS $$
                     BEGIN
-                        EXECUTE 'ALTER TABLE ' || _schema || '.' || demTable ||
-                                 ' ADD COLUMN extent geometry(POLYGON,' || _epsg || ');'; 
+                        EXECUTE 'ALTER TABLE ' || _schema || '.' || _table ||
+                                 ' ADD COLUMN extent geometry(POLYGON, 3035);'; 
 
-                        EXECUTE 'UPDATE ' ||_schema || '.' || demTable ||
+                        EXECUTE 'UPDATE ' ||_schema || '.' || _table ||
                                 ' SET extent = St_Envelope(rast);';
                                 
-                        EXECUTE 'CREATE INDEX extent'|| demTable ||'_idx ON ' ||_schema || '.' || demTable ||' USING GIST(extent);';        
+                        EXECUTE 'CREATE INDEX extent'|| _table ||'_idx ON ' ||_schema || '.' || _table ||' USING GIST(extent);';        
                   
                     RETURN;
                     END; 
@@ -150,47 +164,56 @@ def refreshProcedures(dbname,user,host,password) :
     
     
     
-    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.createDataTable( _schema text, _table text, _epsg int ) RETURNS void AS $$
+    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.createDataTable( _schema text, _table text ) RETURNS void AS $$
                 DECLARE 
-                    st text = _schema || '.' || _table || SUBSTRING(_epsg::text FROM '..$');
+                    st text = _schema || '.' || _table ;
                     stations text = _schema || '.stations';
                 BEGIN
-                    EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, station_id INTEGER REFERENCES ' || stations || '(station_id), 
-                    station_name varchar(80) REFERENCES  ' || stations || '(station_name),
-                    rast raster, rivers geometry(MULTILINESTRINGZ, ' || _epsg || ' ), limits geometry(POLYGON,3006), river_rast raster, outlet geometry(POINT, ' || _epsg || '));';    
+                    EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, 
+                                                       station_id INTEGER REFERENCES ' || stations || '(station_id), 
+                                                       station_name varchar(80) REFERENCES ' || stations || '(station_name),
+                                                       rast raster, 
+                                                       rivers geometry(MULTILINESTRINGZ, 3035 ), 
+                                                       limits geometry(POLYGON, 3035), 
+                                                       river_rast raster, 
+                                                       outlet geometry(POINT, 3035));';    
                     
                     
               
                 RETURN;
                 END; 
-                $$ LANGUAGE PLPGSQL;   
+                $$ LANGUAGE PLPGSQL;    
           ''')
     
     conn.commit() 
     
     
-    cursor.execute(''' CREATE OR REPLACE FUNCTION procedures.generateBaseData(_schema text, _epsg int) RETURNS void AS $$
+    cursor.execute(''' CREATE OR REPLACE FUNCTION procedures.generateBaseData(_schema text) RETURNS void AS $$
                    DECLARE
-                       suffix       text = SUBSTRING(_epsg::text FROM '..$');
-                       resultsTable text = _schema || '.' || 'dem' || suffix;
-                       demTable     text = 'norway.demutm' || suffix;
+                       
+                       resultsTable text = _schema || '.dem'; 
+                       demTable     text = 'norway.el';
                    BEGIN
                        EXECUTE 'INSERT INTO ' || resultsTable || '(station_id,station_name,outlet,rast) 
-                                   SELECT station_id, station_name, ST_Transform(geom,' || _epsg || '), ST_Union(c.rast,1) FROM
+                                   SELECT station_id, station_name, ST_Transform(geom,3035), ST_Union(c.rast,1) FROM
                                         (
                                         SELECT 
                                         	a.station_id, a.station_name, a.geom, b.rast 
                                         		FROM basins.stations as a, ' || demTable || ' as b
-                                        		WHERE ST_Intersects(b.extent, St_Buffer(St_Transform(a.geom,' || _epsg || ' ),a.buffer) )
+                                        		WHERE ST_Intersects(b.extent,
+                                                                    St_Buffer(St_Transform(a.geom,3035),
+                                                                              a.buffer
+                                                                              ) 
+                                                                    )
                                         ) as c
                                         GROUP BY station_id, station_name, geom;
                                ';
                                
                    EXECUTE 'UPDATE ' || resultsTable || 
-                           ' SET limits = ST_Transform(ST_Envelope(rast),3006); ';
+                           ' SET limits = ST_Transform(ST_Envelope(rast),3035); ';
                       
                     EXECUTE 'UPDATE ' || resultsTable ||
-                            ' SET rivers = (SELECT ST_Transform(ST_Union(ST_Intersection(limits,a.geom)),' || _epsg || ' ) FROM norway.rivers as a WHERE ST_Intersects(limits,a.geom));';
+                            ' SET rivers = (SELECT ST_Transform(ST_Union(ST_Intersection(limits,a.geom)),3035 ) FROM norway.rivers as a WHERE ST_Intersects(limits,a.geom));';
                     
                     EXECUTE 'UPDATE ' || resultsTable || 
                             '  SET river_rast = ST_MapAlgebra( rast,
@@ -204,7 +227,7 @@ def refreshProcedures(dbname,user,host,password) :
                     EXECUTE 'UPDATE ' || resultsTable ||
                             ' SET outlet = ST_closestPoint(rivers,outlet);';
                             
-                    EXECUTE 'CREATE INDEX outlet_' || suffix || ' ON ' || resultsTable || ' USING GIST(outlet);';
+                    EXECUTE 'CREATE INDEX outlet_idx ON ' || resultsTable || ' USING GIST(outlet);';
                                
                        
                                
@@ -232,7 +255,7 @@ def refreshProcedures(dbname,user,host,password) :
     conn.commit() 
     
 
-    
+
     
     
     
