@@ -35,13 +35,13 @@ def clean():
 #Tile, transform and burn rivers from downloaded DEM    
     
 def buildVrt():
-    run('cd {}/data && rm norway* && gdalbuildvrt norway.vrt *.tif'.format(path))
+    run('cd {}/data && rm -f norway* && gdalbuildvrt norway.vrt *.tif'.format(path))
     
 def transformVrt():
     run('cd {}/data && gdal_translate norway.vrt norway.tif'.format(path))
 
 def resampleRast(x_size,y_size):
-    run('cd {}/data && gdalwarp -overwrite -s_srs EPSG:3035 -t_srs EPSG:3035 -tr {} {} -r cubicspline norway.tif norway_resampled.tif'.format(path,x_size, y_size))
+    run('cd {}/data && gdalwarp -overwrite -s_srs EPSG:3045 -t_srs EPSG:3035 -tr {} {} -r cubicspline norway.tif norway_resampled.tif'.format(path,x_size, y_size))
 
 def burnRivers(river_layer, shapefile):
     run('cd {}/data && cp norway_resampled.tif norway_burned_rivers.tif && gdal_rasterize -b 1 -burn -20 -add -l {} {} norway_burned_rivers.tif'.format(path,river_layer,shapefile))
@@ -64,14 +64,20 @@ def getFromBucket():
     run('cd dem/data && tar -xf tmp/hydroData.tar')
     run ('cd dem/data && sudo umount tmp')    
 
-def get_file(filename):                                                           
-    get('/home/jose-luis/dem/data/' + filename, '/tmp/backpublish-{}'.format(filename))
+def get_file(filename): 
+    run('rm -rf dem/data/tmp')
+    run('cd dem/data && mkdir tmp && gcsfuse jlg-bucket tmp')
+    run('cd dem/data && tar-cf norway.tar {}'.format(filename))
+    run('cd dem/data && cp norway.tar tmp/ && sudo umount tmp' )
+    #get('/home/jose-luis/dem/data/' + filename, '/tmp/backpublish-{}'.format(filename))
     
 
 def put_file(filename):
-    run('rm -rf /home/jose-luis/data && mkdir /home/jose-luis/data')
-    put('/tmp/backpublish-{}'.format(filename), '/home/jose-luis/data/' + filename)
-
+    run('rm -rf data/tmp')
+    run('cd data && mkdir tmp && gcsfuse jlg-bucket tmp')
+    run('cd data && tar -xf tmp/norway.tar ./'.format(filename))
+    run('sudo umount data/tmp')
+    
 #------------------------------------------------------------------------------------------------------------
 #Hydrological processing using TauDEM
 def pitremove(num_processors,filename):
@@ -90,7 +96,7 @@ def area(num_processors):
 def loadDEMs(name,db,U,h,p):
     epsg_num = 3035
     schema = 'norway'
-    load_cmd = "raster2pgsql -I -C -M -b 1 -r -s {} -d -t 10x10 dem/data/{} {}.{}"
+    load_cmd = "raster2pgsql -I -C -M -b 1 -r -s {} -d -t auto dem/data/{} {}.{}"
     psql_cmd = "PGPASSWORD={} psql -U {} -d {} -h {} -p 5432 -q"
     cmd = load_cmd.format(epsg_num, name, schema, name[:-4] ) + ' | ' + psql_cmd.format(p, U, db, 'localhost')
     run(cmd)
