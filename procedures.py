@@ -51,10 +51,10 @@ def refreshProcedures(dbname,user,host,password) :
                         	CREATE TABLE procedures.stations( 
                                                              sid SERIAL PRIMARY KEY,
                                                              station_name varchar(80) UNIQUE,
-                        				                        station_id INTEGER UNIQUE,
-                        				                        longitude DOUBLE PRECISION,
-                        				                        latitude DOUBLE PRECISION,
-                        				                        geom geometry(POINT,4326),
+                        				                     station_id INTEGER UNIQUE,
+                        				                     longitude DOUBLE PRECISION,
+                        				                     latitude DOUBLE PRECISION,
+                        				                     geom geometry(POINT,3035),
                                                              buffer DOUBLE PRECISION ,
                                                              epsg INTEGER
                         				                     );                       
@@ -107,16 +107,16 @@ def refreshProcedures(dbname,user,host,password) :
                         				    element.station_id,
                         				    element.longitude,
                         				    element.latitude,
-                                          element.buffer,
-                                          element.epsg
-                                        );
+                                            element.buffer,
+                                            element.epsg
+                                          );
                         	END LOOP;
                         	
                         	UPDATE procedures.stations
-                        	SET geom=ST_Transform(ST_SetSRID(ST_MakePoint(longitude,latitude),epsg),4326);
+                        	SET geom=ST_Transform(ST_SetSRID(ST_MakePoint(longitude,latitude),epsg),3035);
                         	CREATE INDEX stations_idx ON procedures.stations USING GIST(geom);
-                          ALTER TABLE procedures.stations
-                          DROP COLUMN epsg;
+                            ALTER TABLE procedures.stations
+                            DROP COLUMN epsg;
                         
                         RETURN;
                         END; 
@@ -153,7 +153,7 @@ def refreshProcedures(dbname,user,host,password) :
                         EXECUTE 'UPDATE ' ||_schema || '.' || _table ||
                                 ' SET extent = St_Envelope(rast);';
                                 
-                        EXECUTE 'CREATE INDEX extent'|| _table ||'_idx ON ' ||_schema || '.' || _table ||' USING GIST(extent);';        
+                        EXECUTE 'CREATE INDEX extent_'|| _table ||'_idx ON ' ||_schema || '.' || _table ||' USING GIST(extent);';        
                   
                     RETURN;
                     END; 
@@ -168,16 +168,20 @@ def refreshProcedures(dbname,user,host,password) :
                 DECLARE 
                     st text = _schema || '.' || _table ;
                     stations text = _schema || '.stations';
+                    s text = _schema;
+                    t text = _table;
                 BEGIN
                     EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, 
                                                        station_id INTEGER REFERENCES ' || stations || '(station_id), 
                                                        station_name varchar(80) REFERENCES ' || stations || '(station_name),
-                                                       rast raster, 
+                                                       elevation raster,
+                                                       flow_dir raster,
+                                                       flow_acc raster,
                                                        rivers geometry(MULTILINESTRINGZ, 3035 ), 
                                                        limits geometry(POLYGON, 3035), 
-                                                       river_rast raster, 
-                                                       outlet geometry(POINT, 3035));';    
-                    
+                                                       outlet geometry(POINT, 3035));'; 
+                                                       
+                    EXECUTE 'SELECT procedures.generateBaseData('' ' || s || ' '', '' ' || t || ' '');';                 
                     
               
                 RETURN;
@@ -188,49 +192,54 @@ def refreshProcedures(dbname,user,host,password) :
     conn.commit() 
     
     
-    cursor.execute(''' CREATE OR REPLACE FUNCTION procedures.generateBaseData(_schema text) RETURNS void AS $$
+    cursor.execute(''' CREATE OR REPLACE FUNCTION procedures.generateBaseData(_schema text, _table text) RETURNS void AS $$
                    DECLARE
                        
-                       resultsTable text = _schema || '.dem'; 
-                       demTable     text = 'norway.el';
+                       resultsTable text = _schema || '.' || _table; 
+                                              
                    BEGIN
-                       EXECUTE 'INSERT INTO ' || resultsTable || '(station_id,station_name,outlet,rast) 
-                                   SELECT station_id, station_name, ST_Transform(geom,3035), ST_Union(c.rast,1) FROM
-                                        (
-                                        SELECT 
-                                        	a.station_id, a.station_name, a.geom, b.rast 
-                                        		FROM basins.stations as a, ' || demTable || ' as b
-                                        		WHERE ST_Intersects(b.extent,
-                                                                    St_Buffer(St_Transform(a.geom,3035),
-                                                                              a.buffer
-                                                                              ) 
-                                                                    )
-                                        ) as c
-                                        GROUP BY station_id, station_name, geom;
-                               ';
-                               
-                   EXECUTE 'UPDATE ' || resultsTable || 
-                           ' SET limits = ST_Transform(ST_Envelope(rast),3035); ';
-                      
-                    EXECUTE 'UPDATE ' || resultsTable ||
-                            ' SET rivers = (SELECT ST_Transform(ST_Union(ST_Intersection(limits,a.geom)),3035 ) FROM norway.rivers as a WHERE ST_Intersects(limits,a.geom));';
-                    
-                    EXECUTE 'UPDATE ' || resultsTable || 
-                            '  SET river_rast = ST_MapAlgebra( rast,
-                                                               ST_AsRaster(rivers,rast,''1BB''),
-                                                               ''[rast1] - 10 * [rast2]'',
-                                                               ''32BF'',
-                                                               ''NTERSECTION'',
-                                                               NULL,
-                                                               ''[rast1]''
-                                                                );';
-                    EXECUTE 'UPDATE ' || resultsTable ||
-                            ' SET outlet = ST_closestPoint(rivers,outlet);';
+                       EXECUTE 'DROP TABLE IF EXISTS bufferTable;';
+                   
+                       EXECUTE 'CREATE TEMP TABLE bufferTable AS 
+                                SELECT a.station_id,a.station_name,ST_Buffer(a.geom,a.buffer) as limits, a.geom as outlet 
+                                FROM ' || _schema || '.stations AS a;';
+                   
+                       EXECUTE 'CREATE INDEX buffer_idx ON bufferTable USING GIST(limits);';
                             
-                    EXECUTE 'CREATE INDEX outlet_idx ON ' || resultsTable || ' USING GIST(outlet);';
+                       EXECUTE 'INSERT INTO ' || resultsTable || '(station_id, 
+                                                                   station_name, 
+                                                                   limits, 
+                                                                   outlet, 
+                                                                   elevation, 
+                                                                   flow_dir, 
+                                                                   flow_acc) 
+                                SELECT buffer.station_id, 
+                                       buffer.station_name,
+                                       buffer.limits,
+                                       buffer.outlet,
+                                       ( SELECT ST_Union(raster.rast,1) 
+                                         FROM norway.el AS raster 
+                                         WHERE ST_Intersects(raster.extent, buffer.limits)  
+                                       ),
+                                       ( SELECT ST_Union(raster.rast,1) 
+                                         FROM norway.flow_dir AS raster 
+                                         WHERE ST_Intersects(raster.extent, buffer.limits)  
+                                       ),
+                                       ( SELECT ST_Union(raster.rast,1) 
+                                         FROM norway.flow_acc AS raster 
+                                         WHERE ST_Intersects(raster.extent, buffer.limits)  
+                                       )
+                                FROM bufferTable AS buffer ; ';
                                
-                       
-                               
+                      
+                       EXECUTE 'UPDATE ' || resultsTable ||
+                                ' SET rivers = (SELECT ST_Union(ST_Intersection(limits,a.geom)) 
+                                  FROM norway.rivers as a 
+                                  WHERE ST_Intersects(limits,a.geom));';
+                    
+                       EXECUTE 'UPDATE ' || resultsTable || ' SET outlet = ST_closestPoint(rivers,outlet);';
+                            
+                       --EXECUTE 'CREATE INDEX outlet_idx ON ' || resultsTable || ' USING GIST(outlet);';
                                
                    RETURN;
                    END;
@@ -239,24 +248,46 @@ def refreshProcedures(dbname,user,host,password) :
     conn.commit()
     
     
-    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.createResultsTable( _schema text, _table text, _epsg int ) RETURNS void AS $$
+    cursor.execute('''  CREATE OR REPLACE FUNCTION procedures.createResultsTable( _schema text, _table text) RETURNS void AS $$
              DECLARE 
-                 st text = _schema || '.' || _table || SUBSTRING(_epsg::text FROM '..$');
+                 st text = _schema || '.' || _table;
                  stations text = _schema || '.stations';
              BEGIN
                  EXECUTE 'CREATE TABLE ' || st || '(sid SERIAL PRIMARY KEY, station_id INTEGER UNIQUE REFERENCES ' || stations || '(station_id), 
                  station_name varchar(80) UNIQUE REFERENCES  ' || stations || '(station_name),
-                 rast raster, basin geometry(MULTIPOLYGON, ' || _epsg || '));';            
+                 rast raster, basin geometry(MULTIPOLYGON, 3035));';           
              RETURN;
              END; 
              $$ LANGUAGE PLPGSQL;   
              ''')
     
+    cursor.execute(''' 
+    CREATE OR REPLACE FUNCTION procedures.dumpAsTif(_schema text, _table text, _column text, _path text) RETURNS VOID AS $$
+    DECLARE
+        st text = _schema || '.' || _table;
+        col text = _column;
+        path text = $sep$'$sep$ || _path || $sep$'$sep$ ;
+        suffix text = $sep$'.tif'$sep$;
+        
+    BEGIN
+        EXECUTE 'DROP TABLE IF EXISTS norway.binary;';
+        EXECUTE 'CREATE TABLE norway.binary(csid INTEGER,oid OID, bytes BYTEA,filename TEXT);';
+        EXECUTE 'INSERT INTO norway.binary(csid) SELECT station_id FROM ' || st || ';';
+        EXECUTE 'UPDATE norway.binary SET oid = lo_create(0);';
+        EXECUTE 'UPDATE norway.binary SET bytes = ST_AsTiff(dem.' || col || ') FROM ' || st || ' AS dem WHERE csid = dem.station_id;';
+        EXECUTE 'UPDATE norway.binary SET filename = ' || path || $sep$||'$sep$ ||  col  || $sep$' ||csid||$sep$ || suffix || ';';
+        
+        EXECUTE 'SELECT lowrite(lo_open(oid, 131072),bytes) from norway.binary;';
+        EXECUTE 'SELECT lo_export(oid, filename) FROM norway.binary;';
+        EXECUTE 'SELECT lo_unlink(oid) from norway.binary;';
+        EXECUTE 'DROP TABLE norway.binary;';
+        
+        RETURN;
+        END;
+        $$ LANGUAGE PLPGSQL;
+        ''')
+    
     conn.commit() 
-    
+   
 
-
-    
-    
-    
     conn.close()
