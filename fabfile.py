@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from fabric.api import *
 import os
 
@@ -96,13 +98,31 @@ def area(num_processors):
 def loadDEMs(name,db,U,h,p):
     epsg_num = 3035
     schema = 'norway'
-    load_cmd = "raster2pgsql -I -C -M -b 1 -r -s {} -d -t auto dem/data/{} {}.{}"
+    load_cmd = "raster2pgsql -I -C -M -b 1 -r -s {} -d -t auto -l 2,4,8,16,32,64 dem/data/{} {}.{}"
     psql_cmd = "PGPASSWORD={} psql -U {} -d {} -h {} -p 5432 -q"
     cmd = load_cmd.format(epsg_num, name, schema, name[:-4] ) + ' | ' + psql_cmd.format(p, U, db, 'localhost')
     run(cmd)
         
 
-#------------------------------------------------------------------------------------------------------------   
+#------------------------------------------------------------------------------------------------------------
+def createTmpDir(path):
+    run('rm -rf {0} && mkdir {0} && cd {0} && chmod a+w {0}'.format(path))
+
+def getStationIdList(schema,table,path):
+    run('''echo "\copy (SELECT station_id FROM {}.{}) TO '{}stations.csv' (format csv);" | psql -d geonorway'''.format(schema,table,path))
+
+def generateShp( user, password, db, schema, table, columnOutlet, path ):
+    put('getShp.sh', path  + 'getShp.sh') 
+    run('chmod +x {}getShp.sh'.format(path))
+    run('cd {0} && ./getShp.sh {0} {1} {2} {3} {4} {5} {6}'.format(path, ' stations.csv ', "'" + user + "'", schema, table, columnOutlet, password)) 
+  
+        
+#This will only work for a superuser 
+def generateRast(password, db, schema, table, columnRast, path ):
+    run(''' echo "SELECT procedures.dumpAsTif('{}','{}','{}','{}');" | PGPASSWORD={} psql -d {} -h localhost -U postgres         '''.format(schema,table,columnRast,path,password,db)    
+       );  
+
+#------------------------------------------------------------------------------------------------------------
 @task                                                                         
 def backpublish(source_role, target_role, filename, target_ip):                                    
     get_file.roles = (source_role,)                                       
@@ -153,9 +173,22 @@ def getHydroData(fileList, target_ip):
             
 @task 
 def loadDEMToDB(nameList,db,U,h,p):
+    print(nameList)
     loadDEMs.roles = ('stage', )
     nameList = nameList.split(";")
     for name in nameList:
         print(name)
         execute(loadDEMs,name,db,U,h,p);
+        
+@task 
+def processBasin(user, password, db, schema,table,columnRast,columnOutlet,path):
+    createTmpDir.roles=('stage',)
+    getStationIdList.roles=('stage',)
+    generateShp.roles=('stage',)
+    generateRast.roles=('stage',)
+        
+    execute(createTmpDir,path)
+    execute(getStationIdList,schema,table,path)
+    execute(generateRast, password, db, schema, table, columnRast, path)
+    execute(generateShp, user, password, db, schema, table, columnOutlet, path)
     
