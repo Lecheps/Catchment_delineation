@@ -109,7 +109,7 @@ def createTmpDir(path):
     run('rm -rf {0} && mkdir {0} && cd {0} && chmod a+w {0}'.format(path))
 
 def getStationIdList(schema,table,path):
-    run('''echo "\copy (SELECT station_id FROM {}.{}) TO '{}stations.csv' (format csv);" | psql -d geonorway'''.format(schema,table,path))
+    run('''echo "\copy (SELECT station_id FROM {}.{}Shp) TO '{}stations.csv' (format csv);" | psql -d geonorway'''.format(schema,table,path))
 
 def generateShp( user, password, db, schema, table, columnOutlet, path ):
     put('getShp.sh', path  + 'getShp.sh') 
@@ -189,6 +189,6 @@ def processBasin(user, password, db, schema,table,columnRast,columnOutlet,path):
         
     execute(createTmpDir,path)
     execute(getStationIdList,schema,table,path)
-    execute(generateRast, password, db, schema, table, columnRast, path)
+    #execute(generateRast, password, db, schema, table, columnRast, path)
     execute(generateShp, user, password, db, schema, table, columnOutlet, path)
     
