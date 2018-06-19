@@ -46,12 +46,7 @@ EOM
 done < $2
 
 read -r -d '' SQL <<- EOM
-    INSERT INTO basins.resultsShp(station_id,station_name)
-    SELECT station_id, station_name FROM basins.stations;
-    WITH polygons AS
-    (SELECT station_id, ST_Union(rast) as r FROM basins.resultsRast GROUP BY station_id)
-    UPDATE basins.resultsShp as b SET basin = ST_Polygon(r) FROM polygons WHERE polygons.station_id=b.station_id;
     CREATE INDEX basin_idx ON basins.resultsShp USING GIST(basin);
 EOM
-#echo $SQL | psql -d geonorway
+echo $SQL | psql -d geonorway
 
