@@ -184,7 +184,7 @@ def refreshProcedures(dbname,user,host,password) :
                     EXECUTE 'CREATE TABLE ' || st_rast || '(sid SERIAL PRIMARY KEY, 
                                                             station_id INTEGER REFERENCES ' || stations || '(station_id), 
                                                             station_name varchar(80) REFERENCES ' || stations || '(station_name),
-                                                            flow_dir INTEGER
+                                                            idx INTEGER
                                                             );'; 
                                                        
                      EXECUTE 'CREATE TABLE ' || st_shp || '(sid SERIAL PRIMARY KEY, 
@@ -227,7 +227,7 @@ def refreshProcedures(dbname,user,host,password) :
                             
                        EXECUTE 'INSERT INTO ' || resultsTableRast || '(station_id, 
                                                                        station_name, 
-                                                                       flow_dir 
+                                                                       idx 
                                                                        ) 
                                 SELECT buffer.station_id, 
                                        buffer.station_name,
@@ -249,7 +249,12 @@ def refreshProcedures(dbname,user,host,password) :
                        EXECUTE 'CREATE VIEW basins.flow AS
                                     SELECT b.station_id,a.rast FROM norway.flow_dir as a
                                     INNER JOIN ' || resultsTableRast ||' AS b
-                                    ON a.rid=b.flow_dir;';        
+                                    ON a.rid=b.idx;';
+                       
+                       EXECUTE 'CREATE VIEW basins.elevation AS
+                                    SELECT b.station_id,a.rast FROM norway.el as a
+                                    INNER JOIN ' || resultsTableRast ||' AS b
+                                    ON a.rid=b.idx;';  
                       
                        EXECUTE ' WITH buffer AS (SELECT ST_Buffer(outlet,500) AS around FROM ' || resultsTableShp || ')
                                  UPDATE ' || resultsTableShp ||
