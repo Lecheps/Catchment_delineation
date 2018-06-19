@@ -1,0 +1,138 @@
+- station:
+    station_id: 1
+    station_name: Breidtjern 
+    longitude: 11.682
+    latitude: 59.120971
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 2
+    station_name: Bæreia
+    longitude: 11.98328
+    latitude: 60.145349
+    epsg: 4326
+    buffer: 5000
+    
+- station:
+    station_id: 3
+    station_name: Flåte
+    longitude: 9.510711
+    latitude: 59.04573
+    epsg: 4326
+    buffer: 15000
+    
+- station:
+    station_id: 4
+    station_name: Lyseren
+    longitude: 11.12843
+    latitude: 59.67606
+    epsg: 4326
+    buffer: 15000
+
+- station:
+    station_id: 5
+    station_name: Røysø
+    longitude: 10.305087
+    latitude: 59.654961
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 6
+    station_name: Store Øyvannet
+    longitude: 10.103467
+    latitude: 59.633151
+    epsg: 4326
+    buffer: 5000
+
+- station:
+    station_id: 7
+    station_name: Suluvatn
+    longitude: 10.291265
+    latitude: 59.608252
+    epsg: 4326
+    buffer: 15000
+
+- station:
+    station_id: 8
+    station_name: Svanstulvanet
+    longitude: 9.42082
+    latitude: 59.391674
+    epsg: 4326
+    buffer: 5000
+
+- station:
+    station_id: 9
+    station_name: Tollreien
+    longitude: 12.304687
+    latitude: 60.28915
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 10
+    station_name: Vansjø
+    longitude: 10.723439
+    latitude: 59.433962
+    epsg: 4326
+    buffer: 30000
+
+- station:
+    station_id: 11
+    station_name: Abborvatn
+    longitude: 28.992874
+    latitude: 69.257699
+    epsg: 4326
+    buffer: 15000
+
+- station:
+    station_id: 12
+    station_name: Ellentjørn
+    longitude: 29.121539
+    latitude: 69.209371
+    epsg: 4326
+    buffer: 40000
+
+- station:
+    station_id: 13
+    station_name: Gearddsjavri
+    longitude: 23.618405
+    latitude: 69.321304
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 14
+    station_name: Gjøkvatn
+    longitude: 29.101733
+    latitude: 69.148783
+    epsg: 4326
+    buffer: 15000
+
+- station:
+    station_id: 15
+    station_name: Løken
+    longitude: 30.004464
+    latitude: 69.457792
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 16
+    station_name: Njukcajavri
+    longitude: 23.180621
+    latitude: 69.033282
+    epsg: 4326
+    buffer: 10000
+
+- station:
+    station_id: 17
+    station_name: Vuorasjavri
+    longitude: 23.228663
+    latitude: 69.008586
+    epsg: 4326
+    buffer: 10000
+
+
+
