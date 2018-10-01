@@ -171,5 +171,6 @@ def downloadData(station,elements,timeOffset,dateInterval) :
     values = np.array([i['observations'][0]['value'] for i in data['data']])
     timestamp = np.array([i['referenceTime'] for i in data['data']],dtype='datetime64')
     result = pd.DataFrame(data=values,index=timestamp,columns=[elements])
+    result.columns=[[elements + '_' + station + '_' + timeOffset],] 
     print('Done!')
     return(result,data)

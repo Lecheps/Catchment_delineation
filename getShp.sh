@@ -49,4 +49,3 @@ read -r -d '' SQL <<- EOM
     CREATE INDEX basin_idx ON basins.resultsShp USING GIST(basin);
 EOM
 echo $SQL | psql -d geonorway
-
