@@ -1,0 +1,24 @@
+#- station:
+#    station_id: 108
+#    station_name: Langtjern, utløp
+#    longitude: 9.7266598416
+#    latitude: 60.3724626431
+#    epsg: 4326
+#    buffer: 5000
+    
+
+- station:
+    station_id: 1
+    station_name: Alna
+    longitude: 10.79164090725788
+    latitude: 59.904612
+    epsg: 4326
+    buffer: 15000   #in meters
+
+- station:
+    station_id: 2
+    station_name: Storelva
+    longitude: 8.9795
+    latitude: 58.6687 
+    epsg: 4326
+    buffer: 45000
