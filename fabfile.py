@@ -3,7 +3,8 @@
 from fabric.api import *
 import os
 
-env.hosts = ['catchment.niva.no']
+#env.hosts = ['catchment.niva.no']
+env.hosts = ['104.196.99.99']
 env.user = 'jose-luis'
 env.key_filename = '/home/jose-luis/.ssh/jose-luisKey'
 env.roledefs = { 'stage': ['catchment.niva.no'],
@@ -114,7 +115,16 @@ def getStationIdList(schema,table,path):
 def generateShp( user, password, db, schema, table, columnOutlet, path ):
     put('getShp.sh', path  + 'getShp.sh') 
     run('chmod +x {}getShp.sh'.format(path))
+    put('mpirun.sh', path  + 'mpirun.sh') 
+    run('chmod +x {}mpirun.sh'.format(path))
     run('cd {0} && ./getShp.sh {0} {1} {2} {3} {4} {5} {6}'.format(path, ' stations.csv ', "'" + user + "'", schema, table, columnOutlet, password)) 
+
+def generateSingleShp( user, password, db, schema, table, columnOutlet, path, fid ):
+    put('getShp.sh', path  + 'getShp.sh') 
+    run('chmod +x {}getShp.sh'.format(path))
+    put('mpirun.sh', path  + 'mpirun.sh') 
+    run('chmod +x {}mpirun.sh'.format(path))
+    run('cd {0} && ./getShp.sh {0} {1} {2} {3} {4} {5} {6} {7}'.format(path, ' stations.csv ', "'" + user + "'", schema, table, columnOutlet, password,fid)) 
   
         
 #This will only work for a superuser 
@@ -191,4 +201,11 @@ def processBasin(user, password, db, schema,table,columnRast,columnOutlet,path):
     execute(getStationIdList,schema,table,path)
     #execute(generateRast, password, db, schema, table, columnRast, path)
     execute(generateShp, user, password, db, schema, table, columnOutlet, path)
+    
+@task 
+def processSingleBasin(user, password, db, schema,table,columnRast,columnOutlet,path,fid):
+    createTmpDir.roles=('stage',)
+    generateSingleShp.roles=('stage',)
+    execute(createTmpDir,path)
+    execute(generateSingleShp, user, password, db, schema, table, columnOutlet, path,fid)
     
